@@ -2,7 +2,8 @@
 const { createApp } = require('./app');
 const port = Number(process.env.PORT || 8080);
 if (!process.env.DEVICE_SALT) console.warn('DEVICE_SALT non défini : sel aléatoire (les pseudonymes changent à chaque redémarrage)');
-const { server, purge } = createApp({ dbPath: process.env.DB_PATH || 'data/parking.db', ...(process.env.DEVICE_SALT ? { salt: process.env.DEVICE_SALT } : {}), trustProxy: process.env.TRUST_PROXY === '1' });
+const { server, purge } = createApp({ dbPath: process.env.DB_PATH || 'data/parking.db', ...(process.env.DEVICE_SALT ? { salt: process.env.DEVICE_SALT } : {}), trustProxy: process.env.TRUST_PROXY === '1', adminToken: process.env.ADMIN_TOKEN || null });
+if (!process.env.ADMIN_TOKEN) console.warn('ADMIN_TOKEN non défini : lecture des rapports désactivée');
 setInterval(() => { const n = purge(); if (n) console.log(`purge RGPD : ${n} lignes supprimées`); }, 60_000).unref();
 purge();
 server.listen(port, '0.0.0.0', () => console.log(`parking-server sur :${port}`));

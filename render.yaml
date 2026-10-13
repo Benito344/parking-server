@@ -10,3 +10,5 @@ services:
         value: "1"
       - key: DEVICE_SALT
         generateValue: true
+      - key: ADMIN_TOKEN
+        sync: false   # à saisir dans le tableau de bord Render (jeton long et aléatoire)

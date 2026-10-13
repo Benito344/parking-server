@@ -86,3 +86,12 @@ test('rapports : limite 5/h et purge à 30 jours', async () => {
   assert.strictEqual(s.app.db.prepare('SELECT COUNT(*) n FROM problems').get().n, 0);
   await s.close();
 });
+
+test('recensement OSM : Abrivados reconnu (zone et « plein »)', async () => {
+  assert.strictEqual(Z.zoneOf(43.67094, 4.12996), 'osm_142455220');
+  assert.ok(Z.ZONES.length >= 80);
+  const s = await setup();
+  assert.strictEqual((await s.call('POST', '/v1/parkings/osm_142455220/full', dev(1))).status, 201);
+  assert.ok((await s.call('GET', '/v1/state')).body.full.osm_142455220);
+  await s.close();
+});

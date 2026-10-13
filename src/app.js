@@ -140,7 +140,7 @@ function createApp({ adminToken = null, k = 5, dbPath = ':memory:', salt = crypt
       if (body.vote === 'taken') q.take.run(r.id); else q.confirm.run(r.id);
       return send(res, 200, { ok: true });
     }
-    m = url.pathname.match(/^\/v1\/parkings\/([a-z_]+)\/full$/);
+    m = url.pathname.match(/^\/v1\/parkings\/([a-z0-9_]+)\/full$/);
     if (m) {
       if (!R.PARKINGS.includes(m[1])) return send(res, 404, { error: 'parking inconnu' });
       if (!rl.allow('full', device, now())) return send(res, 429, { error: 'limite atteinte' });

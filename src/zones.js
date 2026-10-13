@@ -11,7 +11,7 @@ const ZONES = [
   { id: 'rue_gabriel_peri', lat: 43.6748711, lon: 4.1331429 },
   { id: 'rue_louis_rey', lat: 43.6748937, lon: 4.1342091 },
   { id: 'rue_baroncelli', lat: 43.6741793, lon: 4.1313357 },
-];
+].concat(require('./zones-osm.json')); // + recensement OSM complet des parkings publics de Lunel (13/10/2026)
 const RAYON_M = 150;
 function dist(a, b) {
   const r = 6371000, rad = Math.PI / 180, dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
@@ -31,4 +31,5 @@ function slot(ms) {
   const dayType = wd === 'sam' ? 'samedi' : wd === 'dim' ? 'dimanche' : 'ouvre';
   return { dayType, hour: Number(p.hour), day: `${p.year}-${p.month}-${p.day}`, weekday: wd };
 }
-module.exports = { ZONES, zoneOf, slot, RAYON_M };
+const PARKING_IDS = ZONES.filter(z => !z.id.startsWith('rue_')).map(z => z.id);
+module.exports = { PARKING_IDS, ZONES, zoneOf, slot, RAYON_M };

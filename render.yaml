@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: parking-server
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /health
+    envVars:
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DEVICE_SALT
+        generateValue: true

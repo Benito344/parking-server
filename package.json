@@ -1,0 +1,16 @@
+{
+  "name": "parking-server",
+  "version": "1.0.0",
+  "description": "Backend prototype places libres Lunel",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^11.10.0"
+  }
+}

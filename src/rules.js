@@ -1,7 +1,7 @@
 'use strict';
 // Règles métier pures (testables). Valeurs = hypothèses du cahier des charges.
 const ZONE = { latMin: 43.640, latMax: 43.705, lonMin: 4.090, lonMax: 4.170 }; // Lunel (approx.)
-const PARKINGS = ['esplanade', 'canal', 'poste', 'joseph_blanc', 'pont_vesse', 'gare_sud', 'gare_nord'];
+const PARKINGS = require('./zones').PARKING_IDS;
 const SOURCES = ['AUTO_BLUETOOTH', 'AUTO_ACTIVITE', 'MANUEL', 'MANUEL_INCERTAIN'];
 const REPORT_TTL_MS = 15 * 60_000;      // 9.2 : expiration dure 15 min (flux actif)
 const FULL_TTL_MS = 30 * 60_000;        // « parking plein » visible 30 min (hyp.)

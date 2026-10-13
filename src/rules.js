@@ -44,5 +44,6 @@ const DEFAULT_LIMITS = {
   report: { max: 6, windowMs: 3_600_000 },
   vote: { max: 30, windowMs: 3_600_000 },
   full: { max: 10, windowMs: 3_600_000 },
+  problem: { max: 5, windowMs: 3_600_000 },
 };
 module.exports = { ZONE, PARKINGS, SOURCES, REPORT_TTL_MS, FULL_TTL_MS, DETAIL_RETENTION_MS, roundPosition, roundTime, inZone, UUID, validateReport, RateLimiter, DEFAULT_LIMITS };

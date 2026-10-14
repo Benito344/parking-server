@@ -32,4 +32,4 @@ function slot(ms) {
   return { dayType, hour: Number(p.hour), day: `${p.year}-${p.month}-${p.day}`, weekday: wd };
 }
 const PARKING_IDS = ZONES.filter(z => !z.id.startsWith('rue_')).map(z => z.id);
-module.exports = { PARKING_IDS, ZONES, zoneOf, slot, RAYON_M };
+module.exports = { PARKING_IDS, ZONES, zoneOf, slot, dist, RAYON_M };

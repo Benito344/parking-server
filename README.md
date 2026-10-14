@@ -11,3 +11,12 @@ Node 20 + SQLite (better-sqlite3), API REST, rafraîchissement client toutes les
 - `GET /v1/predictions/stats` : statistiques anonymes par zone × type de jour (ouvré/samedi/dimanche) × heure (Europe/Paris) : départs, « plein », nombre de jours. Agrégation des détails de plus de 24 h, publiée seulement si la cellule réunit ≥ 5 installations distinctes (sinon fusion avec les données suivantes, puis suppression à 7 jours). Aucun identifiant dans les stats.
 - `POST /v1/problems` (X-Device-Id requis, 5/h) : `{type: faux_depart|depart_manque|mauvais_stationnement|autre, comment ≤ 1000, log ≤ 500 entrées, appVersion}`. Journal filtré par liste blanche (dt, evt, from, to, vitesseKmh, distanceM arrondie 10 m, precision) : toute position ou identifiant envoyé est ignoré. L'appareil n'est pas stocké. Conservation 30 jours.
 - `GET /v1/admin/problems?limit=50` avec `Authorization: Bearer $ADMIN_TOKEN`.
+
+## v0.5 : comptages terrain
+
+`POST /v1/counts` (en-tête `X-Device-Id`) : `{ "zone": "esplanade", "free": 4, "freeDisabled": 1, "lat": …, "lon": …, "accuracy": 8 }`.
+- Lieu connu (`zones.js`), `free` entier 0–2000, `freeDisabled` ≤ `free` (facultatif), précision ≤ 50 m, position dans Lunel et à moins de 600 m du centroïde du lieu
+  (l'appli exige ≤ 150 m du contour réel). **La position sert uniquement à la vérification et n'est pas stockée.**
+- Anti-abus : 10 comptages par heure et par installation (plus la limite par IP).
+- `GET /v1/state` renvoie `counts` : dernier comptage par lieu sur 1 h (`zone`, `free`, `freeDisabled`, `at` arrondi à 30 s).
+- Détail conservé 7 jours, puis agrégé dans `stats` (`counts`, `countedFree`) avec la même règle k = 5 installations distinctes.

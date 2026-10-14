@@ -27,3 +27,11 @@ Node 20 + SQLite (better-sqlite3), API REST, rafraîchissement client toutes les
 - Lunel-Viel (34146) : 19 lieux publics recensés sur OSM (`src/zones-lunel-viel.json`, identifiants `lv_<way>`), acceptés par `/v1/state`, `/v1/parkings/:id/full`, `/v1/counts` et les statistiques.
 - Positions acceptées : union des emprises des communes.
 - `GET /v1/communes` : liste des communes, de leurs lieux et marchés connus.
+
+## Mise en veille Render Free : keepalive
+
+`.github/workflows/keepalive.yml` appelle `/health` toutes les 10 min (curl avec 3 nouvelles tentatives, échec non bloquant).
+- Quota : dépôt **public** (vérifié via l'API GitHub le 14/10/2026), donc minutes Actions gratuites et illimitées. S'il devenait privé : ≈ 4 320 exécutions par mois × 1 min facturée chacune ≈ 4 320 min, au-delà des 2 000 min gratuites ; il faudrait alors passer à un ping toutes les 25 min (≈ 1 730 min), ce qui ne suffirait plus à empêcher la mise en veille.
+- Limites : cron GitHub parfois retardé de plusieurs minutes (la veille peut quand même survenir) ; workflows planifiés désactivés après 60 jours sans activité sur un dépôt public (les réactiver dans l'onglet Actions) ; 750 h d'instance gratuite par mois sur Render, assez pour **un seul** service toujours éveillé (744 h sur 31 jours).
+- URL modifiable par la variable de dépôt `KEEPALIVE_URL`.
+- ⚠️ La base SQLite est sur le disque **éphémère** de Render Free : elle est perdue à chaque redéploiement, redémarrage ou mise en veille. Le keepalive réduit les pertes liées à la veille, pas les autres.

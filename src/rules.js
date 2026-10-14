@@ -15,7 +15,7 @@ function roundPosition(lat, lon, stepM = 5) {
   return { lat: r(lat, dLat), lon: r(lon, dLon) };
 }
 const roundTime = (ms, step = 30_000) => Math.round(ms / step) * step;
-const inZone = (lat, lon) => lat >= ZONE.latMin && lat <= ZONE.latMax && lon >= ZONE.lonMin && lon <= ZONE.lonMax;
+const inZone = (lat, lon) => require('./communes').inAny(lat, lon); // union des communes couvertes
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function validateReport(b) {
@@ -23,7 +23,7 @@ function validateReport(b) {
   const { lat, lon, accuracy, source } = b;
   if (![lat, lon, accuracy].every(Number.isFinite)) return 'lat/lon/accuracy requis';
   if (accuracy > 30 || accuracy < 0) return 'précision > 30 m : non publiable';
-  if (!inZone(lat, lon)) return 'hors zone ouverte (Lunel)';
+  if (!inZone(lat, lon)) return 'hors zone ouverte (Lunel, Lunel-Viel)';
   if (!SOURCES.includes(source)) return 'source inconnue';
   return null;
 }
@@ -39,7 +39,7 @@ function validateCount(b) {
   if (freeDisabled != null && (!Number.isInteger(freeDisabled) || freeDisabled < 0 || freeDisabled > free)) return 'places PMR invalides';
   if (![lat, lon, accuracy].every(Number.isFinite)) return 'lat/lon/accuracy requis';
   if (accuracy < 0 || accuracy > 50) return 'précision > 50 m : comptage refusé';
-  if (!inZone(lat, lon)) return 'hors zone ouverte (Lunel)';
+  if (!inZone(lat, lon)) return 'hors zone ouverte (Lunel, Lunel-Viel)';
   return null;
 }
 

@@ -114,6 +114,9 @@ function createApp({ adminToken = null, k = 5, dbPath = ':memory:', salt = crypt
 
     if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true });
     if (req.method === 'GET' && url.pathname === '/v1/state') return send(res, 200, state());
+    if (req.method === 'GET' && url.pathname === '/v1/communes')
+      return send(res, 200, { communes: require('./communes').COMMUNES.map(c => ({ insee: c.insee, nom: c.nom, bbox: c.bbox, centre: c.centre,
+        zones: Z.ZONES.filter(z => require('./communes').communeOfZone(z.id) === c.insee).map(z => z.id), marches: c.marches || [] })) });
 
     if (req.method === 'GET' && url.pathname === '/v1/predictions/stats')
       return send(res, 200, { k, slot: 'heure locale Europe/Paris', cells: db.prepare('SELECT zone, day_type AS dayType, hour, departures, fulls, days, counts, counted_free AS countedFree FROM stats').all() });

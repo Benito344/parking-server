@@ -1,0 +1,24 @@
+# Garde le service Render Free éveillé (il s'endort après 15 min sans trafic, réveil ≈ 50 s).
+# Dépôt public : minutes GitHub Actions gratuites et illimitées sur les runners standards.
+# Limites : les crons GitHub peuvent être retardés (charge) ; ils sont désactivés après 60 jours sans activité sur un dépôt public.
+name: keepalive
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+permissions: {}
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    continue-on-error: true
+    steps:
+      - name: Ping /health
+        env:
+          URL: ${{ vars.KEEPALIVE_URL || 'https://parking-server-eoua.onrender.com/health' }}
+        run: |
+          curl -fsS --max-time 70 --retry 3 --retry-delay 10 --retry-all-errors "$URL" \
+            || echo "::warning::Serveur injoignable (non bloquant)"

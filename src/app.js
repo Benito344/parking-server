@@ -110,9 +110,13 @@ function createApp({ adminToken = null, k = 5, dbPath = ':memory:', salt = crypt
   async function handle(req, res) {
     const url = new URL(req.url, 'http://x');
     const ip = (trustProxy && req.headers['x-forwarded-for']?.split(',')[0].trim()) || req.socket.remoteAddress || '?';
+    // /health : léger (ni base, ni limiteur) — sondé par Render et par le keepalive.
+    if ((req.method === 'GET' || req.method === 'HEAD') && url.pathname === '/health') {
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      return res.end(req.method === 'HEAD' ? undefined : '{"ok":true}');
+    }
     if (!rl.allow('ip', ip, now())) return send(res, 429, { error: 'trop de requêtes' });
 
-    if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true });
     if (req.method === 'GET' && url.pathname === '/v1/state') return send(res, 200, state());
     if (req.method === 'GET' && url.pathname === '/v1/communes')
       return send(res, 200, { communes: require('./communes').COMMUNES.map(c => ({ insee: c.insee, nom: c.nom, bbox: c.bbox, centre: c.centre,

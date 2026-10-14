@@ -20,3 +20,10 @@ Node 20 + SQLite (better-sqlite3), API REST, rafraîchissement client toutes les
 - Anti-abus : 10 comptages par heure et par installation (plus la limite par IP).
 - `GET /v1/state` renvoie `counts` : dernier comptage par lieu sur 1 h (`zone`, `free`, `freeDisabled`, `at` arrondi à 30 s).
 - Détail conservé 7 jours, puis agrégé dans `stats` (`counts`, `countedFree`) avec la même règle k = 5 installations distinctes.
+
+## v0.6 : multi-communes (Lunel + Lunel-Viel)
+
+- `src/communes.js` : configuration par commune (INSEE, nom, emprise, centre, préfixe des lieux, marchés). Lunel (34145) inchangée.
+- Lunel-Viel (34146) : 19 lieux publics recensés sur OSM (`src/zones-lunel-viel.json`, identifiants `lv_<way>`), acceptés par `/v1/state`, `/v1/parkings/:id/full`, `/v1/counts` et les statistiques.
+- Positions acceptées : union des emprises des communes.
+- `GET /v1/communes` : liste des communes, de leurs lieux et marchés connus.

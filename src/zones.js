@@ -11,7 +11,8 @@ const ZONES = [
   { id: 'rue_gabriel_peri', lat: 43.6748711, lon: 4.1331429 },
   { id: 'rue_louis_rey', lat: 43.6748937, lon: 4.1342091 },
   { id: 'rue_baroncelli', lat: 43.6741793, lon: 4.1313357 },
-].concat(require('./zones-osm.json')); // + recensement OSM complet des parkings publics de Lunel (13/10/2026)
+].concat(require('./zones-osm.json')) // + recensement OSM complet des parkings publics de Lunel (13/10/2026)
+  .concat(require('./zones-lunel-viel.json')); // + Lunel-Viel (INSEE 34146), recensement OSM du 14/10/2026
 const RAYON_M = 150;
 function dist(a, b) {
   const r = 6371000, rad = Math.PI / 180, dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;

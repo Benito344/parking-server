@@ -1,11 +1,11 @@
 # parking-server (prototype)
-Node 20 + SQLite (better-sqlite3), API REST, rafraîchissement client toutes les 12 s.
+Node 20 + **Turso / libSQL** (`@libsql/client`), API REST, rafraîchissement client toutes les 12 s.
 
 - `npm ci && npm test` · `DEVICE_SALT=<secret> PORT=8080 npm start`
-- Variables : `ADMIN_TOKEN` (lecture des rapports ; absent = désactivé), `PORT`, `DB_PATH` (défaut data/parking.db), `DEVICE_SALT` (obligatoire en prod), `TRUST_PROXY=1` derrière un proxy (Render/Koyeb).
+- Variables : `ADMIN_TOKEN` (lecture des rapports ; absent = désactivé), `PORT`, `DEVICE_SALT` (obligatoire en prod), `TRUST_PROXY=1` derrière un proxy (Render/Koyeb), `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (prod) ou `DB_PATH` (fichier local / `:memory:` en dev).
 - API : `GET /health`, `GET /v1/state`, `POST /v1/reports`, `POST /v1/reports/:id/votes` {vote: still_free|taken}, `POST /v1/parkings/:id/full`. En-tête `X-Device-Id` (UUID v4 aléatoire) pour les POST.
 - RGPD : position arrondie 5 m, heure arrondie 30 s, identifiant stocké en HMAC salé, flux actif 15 min, purge du détail à 7 jours (agrégation k=5 non implémentée).
-- Les données sont éphémères par nature : sur un hébergement gratuit sans disque, une perte au redémarrage ne fait perdre que ≤ 15 min de signalements.
+- En production : base **Turso** (persistante). Sans `TURSO_*`, fichier local `DB_PATH` (éphémère sur Render Free).
 
 ## v0.4 — prédictions et rapports
 - `GET /v1/predictions/stats` : statistiques anonymes par zone × type de jour (ouvré/samedi/dimanche) × heure (Europe/Paris) : départs, « plein », nombre de jours. Agrégation des détails de plus de 24 h, publiée seulement si la cellule réunit ≥ 5 installations distinctes (sinon fusion avec les données suivantes, puis suppression à 7 jours). Aucun identifiant dans les stats.
@@ -34,4 +34,41 @@ Node 20 + SQLite (better-sqlite3), API REST, rafraîchissement client toutes les
 - Quota : dépôt **public** (vérifié via l'API GitHub le 14/10/2026), donc minutes Actions gratuites et illimitées. S'il devenait privé : ≈ 4 320 exécutions par mois × 1 min facturée chacune ≈ 4 320 min, au-delà des 2 000 min gratuites ; il faudrait alors passer à un ping toutes les 25 min (≈ 1 730 min), ce qui ne suffirait plus à empêcher la mise en veille.
 - Limites : cron GitHub parfois retardé de plusieurs minutes (la veille peut quand même survenir) ; workflows planifiés désactivés après 60 jours sans activité sur un dépôt public (les réactiver dans l'onglet Actions) ; 750 h d'instance gratuite par mois sur Render, assez pour **un seul** service toujours éveillé (744 h sur 31 jours).
 - URL modifiable par la variable de dépôt `KEEPALIVE_URL`.
-- ⚠️ La base SQLite est sur le disque **éphémère** de Render Free : elle est perdue à chaque redéploiement, redémarrage ou mise en veille. Le keepalive réduit les pertes liées à la veille, pas les autres.
+- Avec Turso configuré, les données survivent aux redéploiements et aux mises en veille. Sans Turso, le fichier local reste éphémère sur Render Free.
+
+
+## Base Turso (production)
+
+Si `TURSO_DATABASE_URL` et `TURSO_AUTH_TOKEN` sont définis, le serveur utilise Turso (libSQL distant). Sinon : fichier SQLite local (`DB_PATH`, défaut `data/parking.db`) pour le développement et les tests (`:memory:`).
+
+### Offre gratuite Turso (vérifiée sur turso.tech/pricing, 14/10/2026)
+- 100 bases, 5 Go de stockage, 500 millions de lignes lues / mois, 10 millions écrites / mois, 3 Go de sync.
+- Pas de carte bancaire. Au-delà d'une limite : la base est **bloquée** jusqu'au mois suivant ou un passage au plan payant.
+- Pas de mise en veille côté Turso (contrairement à Render Free).
+
+### À faire une fois (Ben)
+
+1. Ouvre [https://turso.tech](https://turso.tech) et connecte-toi (compte déjà créé).
+2. Crée une base (bouton **Create Database** / **New Database**) :
+   - Nom suggéré : `parking-lunel`.
+   - **Région** : choisis une région **Europe**, de préférence proche de Render Frankfurt (ex. `aws-eu-central-1` / Frankfurt / `eu-central` selon l'interface). Si le tableau de bord propose seulement un « group », crée d'abord le group en UE, puis la base dedans.
+   - Moteur : libSQL (défaut) ou Turso DB — les deux sont compatibles avec `@libsql/client`.
+3. Sur la page de la base, copie l'**URL** (forme `libsql://parking-lunel-….turso.io`).
+4. Crée un **jeton** d'accès :
+   - Dans le tableau de bord : **Tokens** → **Create Token** (lecture + écriture, expiration « never » ou longue), **ou**
+   - En ligne de commande : `turso db tokens create parking-lunel` ([doc](https://docs.turso.tech/sdk/authorization/tokens)).
+5. Dans **Render** → service `parking-server` → **Environment** :
+   - `TURSO_DATABASE_URL` = l'URL `libsql://…`
+   - `TURSO_AUTH_TOKEN` = le jeton
+   - (ne pas cocher « sync from blueprint » : ces variables sont `sync: false` dans `render.yaml`)
+6. **Save** puis **Manual Deploy** (ou attends le prochain déploiement). Au démarrage, le serveur crée le schéma tout seul (idempotent) et journalise `Base : Turso libsql://…`.
+7. Vérifie : `GET https://parking-server-eoua.onrender.com/health` puis un `GET /v1/state` après réveil. Les données restent après un redéploiement.
+
+CLI (équivalent, doc Turso) :
+```bash
+turso auth login
+turso group create parking --location aws-eu-central-1   # si besoin d'un group UE
+turso db create parking-lunel --group parking
+turso db show parking-lunel          # affiche l'URL
+turso db tokens create parking-lunel # affiche le jeton
+```

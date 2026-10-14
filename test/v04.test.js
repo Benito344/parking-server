@@ -7,7 +7,7 @@ const Z = require('../src/zones');
 const dev = i => `${String(i).padStart(8, '0')}-1111-4111-8111-111111111111`;
 async function setup(opts = {}) {
   let t = Date.parse('2026-10-15T08:10:00Z'); // jeudi 10 h 10 à Lunel
-  const app = createApp({ now: () => t, ...opts });
+  const app = await createApp({ now: () => t, ...opts });
   await new Promise(r => app.server.listen(0, r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   const call = async (method, path, d, body, headers = {}) => {
@@ -30,27 +30,27 @@ test('agrégation : rien avant 24 h, rien sous 5 installations, publication à 5
   const s = await setup();
   for (let i = 1; i <= 4; i++) await s.call('POST', '/v1/reports', dev(i), canal);
   await s.call('POST', '/v1/parkings/canal/full', dev(1));
-  assert.strictEqual(s.app.aggregate(), 0); // < 24 h
+  assert.strictEqual(await s.app.aggregate(), 0); // < 24 h
   s.add(24 * 3600_000 + 60_000);
-  assert.strictEqual(s.app.aggregate(), 0); // 4 installations < k
+  assert.strictEqual(await s.app.aggregate(), 0); // 4 installations < k
   assert.deepStrictEqual((await s.call('GET', '/v1/predictions/stats')).body.cells, []);
   // Le lendemain, même créneau (jeudi→vendredi = « ouvre », 10 h), une 5e installation : fusion.
   await s.call('POST', '/v1/reports', dev(5), canal);
   s.add(25 * 3600_000);
-  assert.strictEqual(s.app.aggregate(), 1);
+  assert.strictEqual(await s.app.aggregate(), 1);
   const cells = (await s.call('GET', '/v1/predictions/stats')).body.cells;
   assert.deepStrictEqual(cells, [{ zone: 'canal', dayType: 'ouvre', hour: 10, departures: 5, fulls: 1, days: 2, counts: 0, countedFree: 0 }]);
   assert.ok(!JSON.stringify(cells).includes('1111')); // aucun identifiant
-  assert.strictEqual(s.app.aggregate(), 0); // pas de double comptage
+  assert.strictEqual(await s.app.aggregate(), 0); // pas de double comptage
   await s.close();
 });
 
 test('lignes jamais agrégées supprimées à 7 jours', async () => {
   const s = await setup();
   await s.call('POST', '/v1/reports', dev(1), canal);
-  s.add(8 * 86_400_000); s.app.purge();
-  assert.strictEqual(s.app.db.prepare('SELECT COUNT(*) n FROM reports').get().n, 0);
-  assert.strictEqual(s.app.db.prepare('SELECT COUNT(*) n FROM stats').get().n, 0);
+  s.add(8 * 86_400_000); await s.app.purge();
+  assert.strictEqual((await s.app.db.get('SELECT COUNT(*) n FROM reports')).n, 0);
+  assert.strictEqual((await s.app.db.get('SELECT COUNT(*) n FROM stats')).n, 0);
   await s.close();
 });
 
@@ -82,8 +82,8 @@ test('rapports : limite 5/h et purge à 30 jours', async () => {
   const s = await setup({ adminToken: 't' });
   for (let i = 0; i < 5; i++) assert.strictEqual((await s.call('POST', '/v1/problems', dev(2), { type: 'autre' })).status, 201);
   assert.strictEqual((await s.call('POST', '/v1/problems', dev(2), { type: 'autre' })).status, 429);
-  s.add(31 * 86_400_000); s.app.purge();
-  assert.strictEqual(s.app.db.prepare('SELECT COUNT(*) n FROM problems').get().n, 0);
+  s.add(31 * 86_400_000); await s.app.purge();
+  assert.strictEqual((await s.app.db.get('SELECT COUNT(*) n FROM problems')).n, 0);
   await s.close();
 });
 

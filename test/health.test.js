@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const { createApp } = require('../src/app');
 
 test('/health léger : GET et HEAD, non soumis au limiteur par IP', async () => {
-  const app = createApp({ limits: { ip: { max: 1, windowMs: 60_000 } } });
+  const app = await createApp({ limits: { ip: { max: 1, windowMs: 60_000 } } });
   await new Promise(r => app.server.listen(0, r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   for (let i = 0; i < 5; i++) {

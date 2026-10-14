@@ -9,7 +9,7 @@ const R = require('../src/rules');
 const dev = i => `${String(i).padStart(8, '0')}-3333-4333-8333-333333333333`;
 async function setup() {
   let t = Date.parse('2026-10-14T08:00:00Z'); // mercredi 10 h à Lunel-Viel
-  const app = createApp({ now: () => t });
+  const app = await createApp({ now: () => t });
   await new Promise(r => app.server.listen(0, r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   const call = async (method, path, d, body) => {
@@ -49,7 +49,7 @@ test('Lunel-Viel : signalement, plein, comptage, état et statistiques', async (
   const st = (await s.call('GET', '/v1/state')).body;
   assert.strictEqual(st.reports.length, 1); assert.ok(st.full.lv_889339755); assert.strictEqual(st.counts[0].zone, 'lv_889339755');
   for (let i = 2; i <= 5; i++) await s.call('POST', '/v1/counts', dev(i), { zone: 'lv_889339755', free: 5, ...place14, accuracy: 8 });
-  s.add(25 * 3_600_000); s.app.purge();
+  s.add(25 * 3_600_000); await s.app.purge();
   const cell = (await s.call('GET', '/v1/predictions/stats')).body.cells.find(c => c.zone === 'lv_889339755');
   assert.strictEqual(cell.counts, 5); assert.strictEqual(cell.countedFree, 23);
   await s.close();

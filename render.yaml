@@ -12,3 +12,7 @@ services:
         generateValue: true
       - key: ADMIN_TOKEN
         sync: false   # à saisir dans le tableau de bord Render (jeton long et aléatoire)
+      - key: TURSO_DATABASE_URL
+        sync: false   # libsql://… (créée dans le tableau de bord Turso)
+      - key: TURSO_AUTH_TOKEN
+        sync: false   # jeton Turso (lecture/écriture, sans expiration ou long)

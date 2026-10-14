@@ -6,7 +6,7 @@ const { createApp } = require('../src/app');
 const dev = i => `${String(i).padStart(8, '0')}-2222-4222-8222-222222222222`;
 async function setup(opts = {}) {
   let t = Date.parse('2026-10-14T09:45:00Z'); // mercredi 11 h 45 à Lunel
-  const app = createApp({ now: () => t, ...opts });
+  const app = await createApp({ now: () => t, ...opts });
   await new Promise(r => app.server.listen(0, r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   const call = async (method, path, d, body) => {
@@ -23,7 +23,7 @@ test('comptage : publié dans /v1/state sans position ni identifiant, puis expir
   let st = (await s.call('GET', '/v1/state')).body;
   assert.deepStrictEqual(st.counts.map(c => [c.zone, c.free, c.freeDisabled]), [['esplanade', 4, 1]]);
   assert.deepStrictEqual(Object.keys(st.counts[0]).sort(), ['at', 'free', 'freeDisabled', 'zone']);
-  const row = s.app.db.prepare('SELECT * FROM counts').get();
+  const row = await s.app.db.get('SELECT * FROM counts');
   assert.ok(!('lat' in row) && !('lon' in row)); assert.notStrictEqual(row.device, dev(1));
   s.add(5 * 60_000);
   await s.call('POST', '/v1/counts', dev(2), { ...esp, free: 2, freeDisabled: null });
@@ -56,13 +56,13 @@ test('comptage : limite anti-abus (10 par heure et par installation)', async () 
 test('comptage : agrégé dans les statistiques avec k = 5, détail purgé à 7 jours', async () => {
   const s = await setup();
   for (let i = 0; i < 4; i++) await s.call('POST', '/v1/counts', dev(10 + i), esp);
-  s.add(25 * 3_600_000); s.app.purge();
+  s.add(25 * 3_600_000); await s.app.purge();
   assert.deepStrictEqual((await s.call('GET', '/v1/predictions/stats')).body.cells, []); // 4 < k
   s.add(-25 * 3_600_000); await s.call('POST', '/v1/counts', dev(20), { ...esp, free: 8 }); s.add(25 * 3_600_000);
-  s.app.purge();
+  await s.app.purge();
   const cells = (await s.call('GET', '/v1/predictions/stats')).body.cells;
   assert.deepStrictEqual(cells, [{ zone: 'esplanade', dayType: 'ouvre', hour: 11, departures: 0, fulls: 0, days: 1, counts: 5, countedFree: 24 }]);
-  s.add(7 * 86_400_000); s.app.purge();
-  assert.strictEqual(s.app.db.prepare('SELECT COUNT(*) n FROM counts').get().n, 0);
+  s.add(7 * 86_400_000); await s.app.purge();
+  assert.strictEqual((await s.app.db.get('SELECT COUNT(*) n FROM counts')).n, 0);
   await s.close();
 });

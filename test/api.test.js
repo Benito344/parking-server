@@ -7,7 +7,7 @@ const R = require('../src/rules');
 const D1 = '11111111-1111-4111-8111-111111111111', D2 = '22222222-2222-4222-8222-222222222222', D3 = '33333333-3333-4333-8333-333333333333';
 async function setup(opts = {}) {
   let t = Date.parse('2026-10-13T10:00:00Z'); const clock = { get: () => t, add: ms => { t += ms; } };
-  const app = createApp({ now: clock.get, ...opts });
+  const app = await createApp({ now: clock.get, ...opts });
   await new Promise(r => app.server.listen(0, r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   const call = async (method, path, dev, body) => {
@@ -32,9 +32,9 @@ test('signalement, visibilité partagée, expiration 15 min, purge 7 j', async (
   assert.notStrictEqual(st.reports[0].lat, rep.lat); // arrondie
   assert.ok(!('device' in st.reports[0]));
   s.clock.add(16 * 60_000); st = (await s.call('GET', '/v1/state')).body; assert.strictEqual(st.reports.length, 0);
-  assert.strictEqual(s.app.db.prepare('SELECT COUNT(*) n FROM reports').get().n, 1);
-  s.clock.add(7 * 86_400_000); assert.strictEqual(s.app.purge(), 1);
-  assert.strictEqual(s.app.db.prepare('SELECT COUNT(*) n FROM reports').get().n, 0);
+  assert.strictEqual((await s.app.db.get('SELECT COUNT(*) n FROM reports')).n, 1);
+  s.clock.add(7 * 86_400_000); assert.strictEqual(await s.app.purge(), 1);
+  assert.strictEqual((await s.app.db.get('SELECT COUNT(*) n FROM reports')).n, 0);
   await s.close();
 });
 
@@ -43,7 +43,7 @@ test('identifiant anonyme requis, stocké haché', async () => {
   assert.strictEqual((await s.call('POST', '/v1/reports', null, rep)).status, 400);
   assert.strictEqual((await s.call('POST', '/v1/reports', 'toto', rep)).status, 400);
   await s.call('POST', '/v1/reports', D1, rep);
-  const row = s.app.db.prepare('SELECT device FROM reports').get(); assert.ok(!row.device.includes('1111'));
+  const row = await s.app.db.get('SELECT device FROM reports'); assert.ok(!row.device.includes('1111'));
   await s.close();
 });
 

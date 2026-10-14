@@ -28,6 +28,21 @@ function validateReport(b) {
   return null;
 }
 
+// Comptages terrain : visibles 1 h, détail 7 jours comme les autres signalements.
+const COUNT_TTL_MS = 60 * 60_000;
+const COUNT_MAX_CENTROID_M = 600; // contrôle serveur large (grands parkings) ; l'appli exige ≤ 150 m du contour
+function validateCount(b) {
+  if (!b || typeof b !== 'object') return 'corps invalide';
+  const { zone, free, freeDisabled, lat, lon, accuracy } = b;
+  if (typeof zone !== 'string' || !/^[a-z0-9_]{1,40}$/.test(zone)) return 'lieu invalide';
+  if (!Number.isInteger(free) || free < 0 || free > 2000) return 'nombre de places invalide';
+  if (freeDisabled != null && (!Number.isInteger(freeDisabled) || freeDisabled < 0 || freeDisabled > free)) return 'places PMR invalides';
+  if (![lat, lon, accuracy].every(Number.isFinite)) return 'lat/lon/accuracy requis';
+  if (accuracy < 0 || accuracy > 50) return 'précision > 50 m : comptage refusé';
+  if (!inZone(lat, lon)) return 'hors zone ouverte (Lunel)';
+  return null;
+}
+
 // Limiteur à fenêtre glissante en mémoire.
 class RateLimiter {
   constructor(limits) { this.limits = limits; this.hits = new Map(); }
@@ -45,5 +60,6 @@ const DEFAULT_LIMITS = {
   vote: { max: 30, windowMs: 3_600_000 },
   full: { max: 10, windowMs: 3_600_000 },
   problem: { max: 5, windowMs: 3_600_000 },
+  count: { max: 10, windowMs: 3_600_000 },
 };
-module.exports = { ZONE, PARKINGS, SOURCES, REPORT_TTL_MS, FULL_TTL_MS, DETAIL_RETENTION_MS, roundPosition, roundTime, inZone, UUID, validateReport, RateLimiter, DEFAULT_LIMITS };
+module.exports = { COUNT_TTL_MS, COUNT_MAX_CENTROID_M, validateCount, ZONE, PARKINGS, SOURCES, REPORT_TTL_MS, FULL_TTL_MS, DETAIL_RETENTION_MS, roundPosition, roundTime, inZone, UUID, validateReport, RateLimiter, DEFAULT_LIMITS };

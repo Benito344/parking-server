@@ -16,10 +16,14 @@ function createApp({ adminToken = null, k = 5, dbPath = ':memory:', salt = crypt
     CREATE TABLE IF NOT EXISTS fulls (id INTEGER PRIMARY KEY AUTOINCREMENT, parking_id TEXT NOT NULL, device TEXT NOT NULL, at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS stats (zone TEXT NOT NULL, day_type TEXT NOT NULL, hour INTEGER NOT NULL,
       departures INTEGER NOT NULL DEFAULT 0, fulls INTEGER NOT NULL DEFAULT 0, days INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (zone, day_type, hour));
+    CREATE TABLE IF NOT EXISTS counts (id INTEGER PRIMARY KEY AUTOINCREMENT, zone TEXT NOT NULL, free INTEGER NOT NULL, free_disabled INTEGER,
+      created_at INTEGER NOT NULL, device TEXT NOT NULL, aggregated INTEGER NOT NULL DEFAULT 0);
+    CREATE INDEX IF NOT EXISTS counts_created ON counts(created_at);
     CREATE TABLE IF NOT EXISTS problems (id TEXT PRIMARY KEY, at INTEGER NOT NULL, type TEXT NOT NULL, comment TEXT, app_version TEXT, log TEXT);
   `);
   // Migration douce : colonne « agrégé » sur les tables de détail.
   for (const t of ['reports', 'fulls']) { try { db.exec(`ALTER TABLE ${t} ADD COLUMN aggregated INTEGER NOT NULL DEFAULT 0`); } catch {} }
+  for (const c of ['counts INTEGER NOT NULL DEFAULT 0', 'counted_free INTEGER NOT NULL DEFAULT 0']) { try { db.exec(`ALTER TABLE stats ADD COLUMN ${c}`); } catch {} }
   // Le serveur ne stocke qu'un hachage salé de l'identifiant d'installation (pseudonyme, non réversible sans le sel).
   const pseudo = id => crypto.createHmac('sha256', salt).update(id).digest('hex').slice(0, 32);
   const rl = new R.RateLimiter(limits);
@@ -49,20 +53,23 @@ function createApp({ adminToken = null, k = 5, dbPath = ':memory:', salt = crypt
     const add = (kind, row, zone) => {
       if (!zone) return;
       const s = Z.slot(row.at), key = `${zone}|${s.dayType}|${s.hour}`;
-      const c = cells.get(key) || { zone, dayType: s.dayType, hour: s.hour, departures: 0, fulls: 0, devices: new Set(), days: new Set(), rows: [] };
-      c[kind]++; c.devices.add(row.device); c.days.add(s.day); c.rows.push([kind, row.id]); cells.set(key, c);
+      const c = cells.get(key) || { zone, dayType: s.dayType, hour: s.hour, departures: 0, fulls: 0, counts: 0, countedFree: 0, devices: new Set(), days: new Set(), rows: [] };
+      c[kind]++; if (kind === 'counts') c.countedFree += row.free; c.devices.add(row.device); c.days.add(s.day); c.rows.push([kind, row.id]); cells.set(key, c);
     };
     for (const r of db.prepare('SELECT id, lat, lon, device, created_at AS at FROM reports WHERE aggregated = 0 AND created_at < ?').all(avant)) add('departures', r, Z.zoneOf(r.lat, r.lon));
     for (const f of db.prepare('SELECT id, parking_id, device, at FROM fulls WHERE aggregated = 0 AND at < ?').all(avant)) add('fulls', f, f.parking_id);
-    const up = db.prepare(`INSERT INTO stats (zone, day_type, hour, departures, fulls, days) VALUES (?,?,?,?,?,?)
-      ON CONFLICT(zone, day_type, hour) DO UPDATE SET departures = departures + excluded.departures, fulls = fulls + excluded.fulls, days = days + excluded.days`);
-    const markR = db.prepare('UPDATE reports SET aggregated = 1 WHERE id = ?'), markF = db.prepare('UPDATE fulls SET aggregated = 1 WHERE id = ?');
+    for (const c of db.prepare('SELECT id, zone, free, device, created_at AS at FROM counts WHERE aggregated = 0 AND created_at < ?').all(avant)) add('counts', c, c.zone);
+    const up = db.prepare(`INSERT INTO stats (zone, day_type, hour, departures, fulls, days, counts, counted_free) VALUES (?,?,?,?,?,?,?,?)
+      ON CONFLICT(zone, day_type, hour) DO UPDATE SET departures = departures + excluded.departures, fulls = fulls + excluded.fulls, days = days + excluded.days,
+        counts = counts + excluded.counts, counted_free = counted_free + excluded.counted_free`);
+    const mark = { departures: db.prepare('UPDATE reports SET aggregated = 1 WHERE id = ?'), fulls: db.prepare('UPDATE fulls SET aggregated = 1 WHERE id = ?'),
+      counts: db.prepare('UPDATE counts SET aggregated = 1 WHERE id = ?') };
     let published = 0;
     db.transaction(() => {
       for (const c of cells.values()) {
         if (c.devices.size < k) continue;
-        up.run(c.zone, c.dayType, c.hour, c.departures, c.fulls, c.days.size); published++;
-        for (const [kind, id] of c.rows) (kind === 'departures' ? markR : markF).run(id);
+        up.run(c.zone, c.dayType, c.hour, c.departures, c.fulls, c.days.size, c.counts, c.countedFree); published++;
+        for (const [kind, id] of c.rows) mark[kind].run(id);
       }
     })();
     return published;
@@ -74,7 +81,8 @@ function createApp({ adminToken = null, k = 5, dbPath = ':memory:', salt = crypt
     const t = now();
     const a = q.purgeReports.run(t - R.DETAIL_RETENTION_MS).changes;
     q.purgeVotes.run(t - R.DETAIL_RETENTION_MS);
-    const b = q.purgeFulls.run(t - R.DETAIL_RETENTION_MS).changes;
+    const b = q.purgeFulls.run(t - R.DETAIL_RETENTION_MS).changes
+      + db.prepare('DELETE FROM counts WHERE created_at < ?').run(t - R.DETAIL_RETENTION_MS).changes;
     rl.sweep(t);
     return a + b;
   }
@@ -85,6 +93,9 @@ function createApp({ adminToken = null, k = 5, dbPath = ':memory:', salt = crypt
       now: t,
       reports: q.active.all(t - R.REPORT_TTL_MS).map(r => ({ id: r.id, lat: r.lat, lon: r.lon, accuracy: r.accuracy_class, source: r.source, createdAt: r.created_at, confirmations: r.confirmations })),
       full: Object.fromEntries(q.fulls.all(t - R.FULL_TTL_MS).map(f => [f.parking_id, f.at])),
+      // Dernier comptage par lieu (1 h) ; ni position ni identifiant.
+      counts: db.prepare(`SELECT zone, free, free_disabled AS freeDisabled, created_at AS at FROM counts c WHERE created_at > ?
+        AND created_at = (SELECT MAX(created_at) FROM counts WHERE zone = c.zone) GROUP BY zone ORDER BY zone`).all(t - R.COUNT_TTL_MS),
     };
   }
 
@@ -105,7 +116,7 @@ function createApp({ adminToken = null, k = 5, dbPath = ':memory:', salt = crypt
     if (req.method === 'GET' && url.pathname === '/v1/state') return send(res, 200, state());
 
     if (req.method === 'GET' && url.pathname === '/v1/predictions/stats')
-      return send(res, 200, { k, slot: 'heure locale Europe/Paris', cells: db.prepare('SELECT zone, day_type AS dayType, hour, departures, fulls, days FROM stats').all() });
+      return send(res, 200, { k, slot: 'heure locale Europe/Paris', cells: db.prepare('SELECT zone, day_type AS dayType, hour, departures, fulls, days, counts, counted_free AS countedFree FROM stats').all() });
     if (req.method === 'GET' && url.pathname === '/v1/admin/problems') {
       if (!adminToken) return send(res, 404, { error: 'introuvable' });
       const h = String(req.headers.authorization || ''), tok = h.startsWith('Bearer ') ? h.slice(7) : '';
@@ -145,6 +156,18 @@ function createApp({ adminToken = null, k = 5, dbPath = ':memory:', salt = crypt
       if (!R.PARKINGS.includes(m[1])) return send(res, 404, { error: 'parking inconnu' });
       if (!rl.allow('full', device, now())) return send(res, 429, { error: 'limite atteinte' });
       q.insFull.run(m[1], device, R.roundTime(now()));
+      return send(res, 201, { ok: true });
+    }
+    if (url.pathname === '/v1/counts') {
+      const err = R.validateCount(body); if (err) return send(res, 422, { error: err });
+      const z = Z.ZONES.find(x => x.id === body.zone);
+      if (!z) return send(res, 404, { error: 'lieu inconnu' });
+      // Contrôle grossier côté serveur (centroïde) : l'appli vérifie déjà ≤ 150 m du contour réel.
+      if (Z.dist(z, body) > R.COUNT_MAX_CENTROID_M) return send(res, 422, { error: 'trop loin du lieu pour compter' });
+      if (!rl.allow('count', device, now())) return send(res, 429, { error: 'limite de comptages atteinte' });
+      // La position ne sert qu'à la vérification : elle n'est pas stockée.
+      db.prepare('INSERT INTO counts (zone, free, free_disabled, created_at, device) VALUES (?,?,?,?,?)')
+        .run(z.id, body.free, body.freeDisabled ?? null, R.roundTime(now()), device);
       return send(res, 201, { ok: true });
     }
     if (url.pathname === '/v1/problems') {

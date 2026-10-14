@@ -39,7 +39,7 @@ test('agrégation : rien avant 24 h, rien sous 5 installations, publication à 5
   s.add(25 * 3600_000);
   assert.strictEqual(s.app.aggregate(), 1);
   const cells = (await s.call('GET', '/v1/predictions/stats')).body.cells;
-  assert.deepStrictEqual(cells, [{ zone: 'canal', dayType: 'ouvre', hour: 10, departures: 5, fulls: 1, days: 2 }]);
+  assert.deepStrictEqual(cells, [{ zone: 'canal', dayType: 'ouvre', hour: 10, departures: 5, fulls: 1, days: 2, counts: 0, countedFree: 0 }]);
   assert.ok(!JSON.stringify(cells).includes('1111')); // aucun identifiant
   assert.strictEqual(s.app.aggregate(), 0); // pas de double comptage
   await s.close();

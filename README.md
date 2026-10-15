@@ -85,3 +85,8 @@ Envoyée **uniquement si l'utilisateur a coché « Aider à améliorer l'appli �
   - Identifiant stocké en HMAC salé (`DEVICE_SALT`), comme les comptages.
 - `DELETE /v1/telemetry` (en-tête `X-Device-Id`) : supprime toutes les données de l'installation, renvoie `{ deleted }`.
 - `GET /v1/admin/telemetry?days=30` (`Authorization: Bearer $ADMIN_TOKEN`, 1 à 90 jours) : agrégats seulement : événements, installations, trajets, arrivées détectées, taux d'arrivée, déclencheurs (vitesse, geofence, fin_activite, activite_vehicule, bluetooth), échecs par raison (chiffres masqués), répartition par modèle (installations, événements, versions d'Android).
+
+## v0.6.7 : Ganges (INSEE 34111)
+
+- `src/communes.js` : Ganges (34111, CP 34190, non contiguë à Lunel), emprise = bbox officielle geo.api.gouv.fr, centre = Plan de l'Ormeau, marchés du vendredi (7 h 30–14 h) et du mardi (7 h 30–13 h) autour des halles (sources : sudcevennes.com, jds.fr, illicomesproduitslocaux.fr, nosmarches.com).
+- `src/zones-ganges.json` : 38 lieux publics (`ga_<way>`) recensés sur OSM le 15/10/2026 (contour officiel ; access=private/customers et nœuds sans contour exclus).

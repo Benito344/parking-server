@@ -23,7 +23,7 @@ function validateReport(b) {
   const { lat, lon, accuracy, source } = b;
   if (![lat, lon, accuracy].every(Number.isFinite)) return 'lat/lon/accuracy requis';
   if (accuracy > 30 || accuracy < 0) return 'précision > 30 m : non publiable';
-  if (!inZone(lat, lon)) return 'hors zone ouverte (Lunel, Lunel-Viel)';
+  if (!inZone(lat, lon)) return 'hors zone ouverte (Lunel, Lunel-Viel, Ganges)';
   if (!SOURCES.includes(source)) return 'source inconnue';
   return null;
 }
@@ -39,7 +39,7 @@ function validateCount(b) {
   if (freeDisabled != null && (!Number.isInteger(freeDisabled) || freeDisabled < 0 || freeDisabled > free)) return 'places PMR invalides';
   if (![lat, lon, accuracy].every(Number.isFinite)) return 'lat/lon/accuracy requis';
   if (accuracy < 0 || accuracy > 50) return 'précision > 50 m : comptage refusé';
-  if (!inZone(lat, lon)) return 'hors zone ouverte (Lunel, Lunel-Viel)';
+  if (!inZone(lat, lon)) return 'hors zone ouverte (Lunel, Lunel-Viel, Ganges)';
   return null;
 }
 

@@ -10,7 +10,7 @@ const TYPES = new Set(['VehiculeEntre', 'VehiculeSort', 'MarcheEntre', 'Immobile
   'GeofenceEntree', 'Tick', 'GareManuel', 'OublierVoiture', 'Activer', 'Service', 'Autorisations', 'Transitions', 'TransitionRecue',
   'Vivant', 'Filet', 'Demarrage', 'Zone']);
 const ETATS = new Set(['INACTIF', 'VEILLE', 'EN_CONDUITE', 'ARRET_CANDIDAT', 'STATIONNE', 'DEPART_SUSPECT']);
-const COMMUNES = new Set(['34145', '34146']);
+const COMMUNES = new Set(require('./communes').COMMUNES.map(c => c.insee));
 const PERMS = ['localisation', 'toujours', 'activite', 'notifications', 'batterie'];
 const CHAMPS_APP = new Set(['version', 'android', 'model', 'commune']);
 const CHAMPS_EVT = new Set(['t', 'type', 'from', 'to', 'speedKmh', 'accuracyM', 'reason', 'perms']);

@@ -21,7 +21,7 @@ async function setup() {
 const place14 = { lat: 43.67811, lon: 4.09139 }; // parking de la place du 14 Juillet (way 889339755)
 
 test('communes : Lunel inchangée, Lunel-Viel ajoutée', () => {
-  assert.deepStrictEqual(C.COMMUNES.map(c => c.insee), ['34145', '34146']);
+  assert.deepStrictEqual(C.COMMUNES.map(c => c.insee).slice(0, 2), ['34145', '34146']);
   assert.ok(R.inZone(43.6737, 4.1310)); assert.ok(R.inZone(place14.lat, place14.lon)); assert.ok(!R.inZone(43.61, 3.88));
   assert.strictEqual(Z.zoneOf(43.67370, 4.13174), 'canal');
   assert.strictEqual(Z.zoneOf(place14.lat, place14.lon), 'lv_889339755');

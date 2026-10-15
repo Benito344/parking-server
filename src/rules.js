@@ -61,5 +61,7 @@ const DEFAULT_LIMITS = {
   full: { max: 10, windowMs: 3_600_000 },
   problem: { max: 5, windowMs: 3_600_000 },
   count: { max: 10, windowMs: 3_600_000 },
+  telemetry: { max: 12, windowMs: 3_600_000 },
+  telemetryDelete: { max: 5, windowMs: 3_600_000 },
 };
 module.exports = { COUNT_TTL_MS, COUNT_MAX_CENTROID_M, validateCount, ZONE, PARKINGS, SOURCES, REPORT_TTL_MS, FULL_TTL_MS, DETAIL_RETENTION_MS, roundPosition, roundTime, inZone, UUID, validateReport, RateLimiter, DEFAULT_LIMITS };

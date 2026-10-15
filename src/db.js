@@ -41,6 +41,12 @@ async function migrate(client) {
       id INTEGER PRIMARY KEY AUTOINCREMENT, zone TEXT NOT NULL, free INTEGER NOT NULL, free_disabled INTEGER,
       created_at INTEGER NOT NULL, device TEXT NOT NULL, aggregated INTEGER NOT NULL DEFAULT 0);
     CREATE INDEX IF NOT EXISTS counts_created ON counts(created_at);
+    CREATE TABLE IF NOT EXISTS telemetry (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, device TEXT NOT NULL, at INTEGER NOT NULL, received_at INTEGER NOT NULL,
+      type TEXT NOT NULL, from_state TEXT, to_state TEXT, speed INTEGER, accuracy INTEGER, reason TEXT, perms TEXT,
+      app_version TEXT NOT NULL, android INTEGER NOT NULL, model TEXT NOT NULL, commune TEXT);
+    CREATE INDEX IF NOT EXISTS telemetry_at ON telemetry(at);
+    CREATE INDEX IF NOT EXISTS telemetry_device ON telemetry(device);
     CREATE TABLE IF NOT EXISTS problems (
       id TEXT PRIMARY KEY, at INTEGER NOT NULL, type TEXT NOT NULL, comment TEXT, app_version TEXT, log TEXT);
   `);

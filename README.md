@@ -72,3 +72,16 @@ turso db create parking-lunel --group parking
 turso db show parking-lunel          # affiche l'URL
 turso db tokens create parking-lunel # affiche le jeton
 ```
+
+## v0.6.6 : télémétrie volontaire de la détection
+
+Envoyée **uniquement si l'utilisateur a coché « Aider à améliorer l'appli »** (désactivé par défaut, révocable). Finalité : mesurer et corriger la détection automatique (trajets, arrivées, autorisations). Base légale : **consentement** (RGPD art. 6.1.a). Durée : **90 jours**, purge automatique.
+
+- `POST /v1/telemetry` (en-tête `X-Device-Id`, 12 lots/h par installation, 64 Ko max) :
+  `{ "app": { "version": "0.6.6-proto", "android": 36, "model": "SM-S921B", "commune": "34145" }, "events": [ { "t": 1760522160000, "type": "Fixe", "from": "VEILLE", "to": "EN_CONDUITE", "speedKmh": 32, "accuracyM": 20, "reason": "trajet : vitesse 32 km/h (calculée)", "perms": { "localisation": true, "toujours": true, "activite": true, "notifications": true, "batterie": false } } ] }`
+  - Liste blanche stricte à tous les niveaux : un champ inconnu fait rejeter le lot (422).
+  - Rejet de tout nom de champ évoquant une position (`lat`, `lon`, `lng`, `coord`, `geo`, `gps`, `position`, `domicile`, `home`, `adresse`, `trajet`…) et de toute valeur texte qui ressemble à une coordonnée (nombre à 4 décimales ou plus).
+  - 1 à 200 événements ; types et états en liste blanche ; heure arrondie à la minute ; précision arrondie à 5 m ; vitesse à 1 km/h.
+  - Identifiant stocké en HMAC salé (`DEVICE_SALT`), comme les comptages.
+- `DELETE /v1/telemetry` (en-tête `X-Device-Id`) : supprime toutes les données de l'installation, renvoie `{ deleted }`.
+- `GET /v1/admin/telemetry?days=30` (`Authorization: Bearer $ADMIN_TOKEN`, 1 à 90 jours) : agrégats seulement : événements, installations, trajets, arrivées détectées, taux d'arrivée, déclencheurs (vitesse, geofence, fin_activite, activite_vehicule, bluetooth), échecs par raison (chiffres masqués), répartition par modèle (installations, événements, versions d'Android).

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const R = require('./rules');
 const Z = require('./zones');
 const { openClient, migrate, wrap } = require('./db');
+const T = require('./telemetry');
 
 async function createApp({
   adminToken = null, k = 5, dbPath = ':memory:', url, authToken,
@@ -49,6 +50,7 @@ async function createApp({
   async function purge() {
     await aggregate();
     await db.run('DELETE FROM problems WHERE at < ?', [now() - 30 * 86_400_000]);
+    await db.run('DELETE FROM telemetry WHERE received_at < ? OR at < ?', [now() - T.RETENTION_MS, now() - T.RETENTION_MS]);   // rétention 90 jours
     const t = now(), cut = t - R.DETAIL_RETENTION_MS;
     const a = (await db.run('DELETE FROM reports WHERE created_at < ?', [cut])).changes;
     await db.run('DELETE FROM votes WHERE at < ? OR report_id NOT IN (SELECT id FROM reports)', [cut]);
@@ -98,20 +100,45 @@ async function createApp({
     if (req.method === 'GET' && url.pathname === '/v1/predictions/stats')
       return send(res, 200, { k, slot: 'heure locale Europe/Paris',
         cells: await db.all('SELECT zone, day_type AS dayType, hour, departures, fulls, days, counts, counted_free AS countedFree FROM stats') });
-    if (req.method === 'GET' && url.pathname === '/v1/admin/problems') {
-      if (!adminToken) return send(res, 404, { error: 'introuvable' });
+    const adminOk = () => {
       const h = String(req.headers.authorization || ''), tok = h.startsWith('Bearer ') ? h.slice(7) : '';
       const a = crypto.createHash('sha256').update(tok).digest(), b = crypto.createHash('sha256').update(adminToken).digest();
-      if (!tok || !crypto.timingSafeEqual(a, b)) return send(res, 401, { error: 'jeton invalide' });
+      return !!tok && crypto.timingSafeEqual(a, b);
+    };
+    if (req.method === 'GET' && url.pathname === '/v1/admin/telemetry') {
+      if (!adminToken) return send(res, 404, { error: 'introuvable' });
+      if (!adminOk()) return send(res, 401, { error: 'jeton invalide' });
+      const jours = Math.min(Math.max(Number(url.searchParams.get('days')) || 30, 1), 90);
+      return send(res, 200, await T.aggregates(db, now() - jours * 86_400_000));
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/admin/problems') {
+      if (!adminToken) return send(res, 404, { error: 'introuvable' });
+      if (!adminOk()) return send(res, 401, { error: 'jeton invalide' });
       const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200);
       return send(res, 200, { problems: (await db.all('SELECT * FROM problems ORDER BY at DESC LIMIT ?', [limit])).map(p => ({ ...p, log: JSON.parse(p.log || '[]') })) });
     }
 
+    if (req.method === 'DELETE' && url.pathname === '/v1/telemetry') {
+      const d = req.headers['x-device-id'];
+      if (typeof d !== 'string' || !R.UUID.test(d)) return send(res, 400, { error: 'X-Device-Id (UUID v4) requis' });
+      if (!rl.allow('telemetryDelete', pseudo(d), now())) return send(res, 429, { error: 'limite atteinte' });
+      const r = await db.run('DELETE FROM telemetry WHERE device = ?', [pseudo(d)]);
+      return send(res, 200, { deleted: r.changes });
+    }
     if (req.method !== 'POST') return send(res, 404, { error: 'introuvable' });
-    const body = await readJson(req, url.pathname === '/v1/problems' ? 65_536 : 4096);
+    const body = await readJson(req, url.pathname === '/v1/problems' || url.pathname === '/v1/telemetry' ? 65_536 : 4096);
     const dev = req.headers['x-device-id'];
     if (typeof dev !== 'string' || !R.UUID.test(dev)) return send(res, 400, { error: 'X-Device-Id (UUID v4) requis' });
     const device = pseudo(dev);
+
+    if (url.pathname === '/v1/telemetry') {
+      const v = T.validate(body, now()); if (v.error) return send(res, 422, { error: v.error });
+      if (!rl.allow('telemetry', device, now())) return send(res, 429, { error: 'limite de télémétrie atteinte' });
+      const r = now();
+      await db.batch(v.events.map(e => ['INSERT INTO telemetry (device, at, received_at, type, from_state, to_state, speed, accuracy, reason, perms, app_version, android, model, commune) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        [device, e.at, r, e.type, e.from, e.to, e.speed, e.accuracy, e.reason, e.perms, v.app.version, v.app.android, v.app.model, v.app.commune]]));
+      return send(res, 201, { accepted: v.events.length });
+    }
 
     if (url.pathname === '/v1/reports') {
       const err = R.validateReport(body); if (err) return send(res, 422, { error: err });

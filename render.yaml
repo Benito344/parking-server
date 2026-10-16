@@ -10,8 +10,8 @@ services:
         value: "1"
       - key: DEVICE_SALT
         generateValue: true
-      - key: ADMIN_TOKEN
-        sync: false   # à saisir dans le tableau de bord Render (jeton long et aléatoire)
+      - key: ADMIN_TOKEN_ALBERT
+        sync: false   # à saisir dans le tableau de bord Render (jeton long et aléatoire) ; ADMIN_TOKEN accepté en repli
       - key: TURSO_DATABASE_URL
         sync: false   # libsql://… (créée dans le tableau de bord Turso)
       - key: TURSO_AUTH_TOKEN

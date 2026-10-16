@@ -2,7 +2,7 @@
 Node 20 + **Turso / libSQL** (`@libsql/client`), API REST, rafraîchissement client toutes les 12 s.
 
 - `npm ci && npm test` · `DEVICE_SALT=<secret> PORT=8080 npm start`
-- Variables : `ADMIN_TOKEN` (lecture des rapports ; absent = désactivé), `PORT`, `DEVICE_SALT` (obligatoire en prod), `TRUST_PROXY=1` derrière un proxy (Render/Koyeb), `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (prod) ou `DB_PATH` (fichier local / `:memory:` en dev).
+- Variables : `ADMIN_TOKEN_ALBERT` (jeton des routes `/v1/admin/*` ; repli : `ADMIN_TOKEN` ; les deux absents ou vides = routes admin désactivées, 404), `PORT`, `DEVICE_SALT` (obligatoire en prod), `TRUST_PROXY=1` derrière un proxy (Render/Koyeb), `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (prod) ou `DB_PATH` (fichier local / `:memory:` en dev).
 - API : `GET /health`, `GET /v1/state`, `POST /v1/reports`, `POST /v1/reports/:id/votes` {vote: still_free|taken}, `POST /v1/parkings/:id/full`. En-tête `X-Device-Id` (UUID v4 aléatoire) pour les POST.
 - RGPD : position arrondie 5 m, heure arrondie 30 s, identifiant stocké en HMAC salé, flux actif 15 min, purge du détail à 7 jours (agrégation k=5 non implémentée).
 - En production : base **Turso** (persistante). Sans `TURSO_*`, fichier local `DB_PATH` (éphémère sur Render Free).
@@ -10,7 +10,7 @@ Node 20 + **Turso / libSQL** (`@libsql/client`), API REST, rafraîchissement cli
 ## v0.4 — prédictions et rapports
 - `GET /v1/predictions/stats` : statistiques anonymes par zone × type de jour (ouvré/samedi/dimanche) × heure (Europe/Paris) : départs, « plein », nombre de jours. Agrégation des détails de plus de 24 h, publiée seulement si la cellule réunit ≥ 5 installations distinctes (sinon fusion avec les données suivantes, puis suppression à 7 jours). Aucun identifiant dans les stats.
 - `POST /v1/problems` (X-Device-Id requis, 5/h) : `{type: faux_depart|depart_manque|mauvais_stationnement|autre, comment ≤ 1000, log ≤ 500 entrées, appVersion}`. Journal filtré par liste blanche (dt, evt, from, to, vitesseKmh, distanceM arrondie 10 m, precision) : toute position ou identifiant envoyé est ignoré. L'appareil n'est pas stocké. Conservation 30 jours.
-- `GET /v1/admin/problems?limit=50` avec `Authorization: Bearer $ADMIN_TOKEN`.
+- `GET /v1/admin/problems?limit=50` avec `Authorization: Bearer $ADMIN_TOKEN_ALBERT`.
 
 ## v0.5 : comptages terrain
 
@@ -84,7 +84,7 @@ Envoyée **uniquement si l'utilisateur a coché « Aider à améliorer l'appli �
   - 1 à 200 événements ; types et états en liste blanche ; heure arrondie à la minute ; précision arrondie à 5 m ; vitesse à 1 km/h.
   - Identifiant stocké en HMAC salé (`DEVICE_SALT`), comme les comptages.
 - `DELETE /v1/telemetry` (en-tête `X-Device-Id`) : supprime toutes les données de l'installation, renvoie `{ deleted }`.
-- `GET /v1/admin/telemetry?days=30` (`Authorization: Bearer $ADMIN_TOKEN`, 1 à 90 jours) : agrégats seulement : événements, installations, trajets, arrivées détectées, taux d'arrivée, déclencheurs (vitesse, geofence, fin_activite, activite_vehicule, bluetooth), échecs par raison (chiffres masqués), répartition par modèle (installations, événements, versions d'Android).
+- `GET /v1/admin/telemetry?days=30` (`Authorization: Bearer $ADMIN_TOKEN_ALBERT`, 1 à 90 jours) : agrégats seulement : événements, installations, trajets, arrivées détectées, taux d'arrivée, déclencheurs (vitesse, geofence, fin_activite, activite_vehicule, bluetooth), échecs par raison (chiffres masqués), répartition par modèle (installations, événements, versions d'Android).
 
 ## v0.6.7 : Ganges (INSEE 34111)
 
